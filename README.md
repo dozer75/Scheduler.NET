@@ -1,3 +1,10 @@
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/dozer75/Scheduler.NET/CI%20-%20master/master?label=Continuous%20integration%20build&style=plastic)](https://github.com/dozer75/Scheduler.NET/actions?query=workflow%3A%22CI+-+master%22)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/dozer75/Scheduler.NET/Release%20-%20NuGet?label=NuGet%20build&style=plastic)](https://github.com/dozer75/Scheduler.NET/actions?query=workflow%3A%22Release+-+NuGet%22)
+
+[![NuGet Status](https://img.shields.io/nuget/v/Foralla.Scheduler?label=NuGet%20version&style=plastic)](https://www.nuget.org/packages/Foralla.Scheduler/)
+
+[![GitHub](https://img.shields.io/github/license/dozer75/Scheduler.NET?label=License&style=plastic)](https://github.com/dozer75/Scheduler.NET/blob/master/LICENSE)
+
 # Foralla.Scheduler
 
 Foralla.Scheduler is a small and simple scheduler framework designed around the [hosted services in ASP.NET Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services). 
@@ -30,7 +37,6 @@ This project supports both .NET Standard 2.0 or newer.
 
 Since the project is designed around hosted services, any implemtations must use either [Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host) or 
 [Web Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/web-host) provided by ASP.NET Core to be able to run. 
-
 
 ## Adding Foralla.Scheduler support to your application
 
