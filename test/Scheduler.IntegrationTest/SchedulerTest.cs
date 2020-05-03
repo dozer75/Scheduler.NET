@@ -479,7 +479,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
-            await Task.Delay(1);
+            await Task.Delay(300);
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
