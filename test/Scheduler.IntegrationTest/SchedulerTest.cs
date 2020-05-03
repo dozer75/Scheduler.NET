@@ -391,6 +391,8 @@ namespace Foralla.Scheduler.IntegrationTest
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
+            await Task.Delay(100);
+
             jobMock.Verify(job => job.ExecuteAsync(It.IsAny<CancellationToken>()), Times.Once);
             loggerMock.Verify(LogLevel.Trace, $"{jobMock.Name} has not been rescheduled since the host is shutting down.", Times.Once);
         }
