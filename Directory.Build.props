@@ -1,0 +1,31 @@
+<Project>
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>dev</VersionSuffix>
+    <Authors>Rune Gulbrandsen</Authors>
+    <Description>The Scheduler component simplifies implemention of a scheduled based on cron to any .NET Core based application that uses either IHost or IWebHost. The base implementation supports Cron expressions, but can be easily extended to support other types of scheduler configurations.</Description>
+    <Tags>Cron,Scheduler,Scheduling,Recurring,Quartz</Tags>
+    <Copyright>Copyright (c) 2020 Rune Gulbrandsen</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/dozer75/CronScheduler</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dozer75/CronScheduler</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
+
+    <Deterministic>true</Deterministic>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <!--
+  </PropertyGroup>
+  
+
+  <PropertyGroup Condition="'$(TF_BUILD)' == 'true'">
+  -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+  </ItemGroup>
+</Project>
