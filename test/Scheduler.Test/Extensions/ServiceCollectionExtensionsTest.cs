@@ -92,10 +92,6 @@ namespace Foralla.Scheduler.Test.Extensions
             Assert.Equal(typeof(TestJob), serviceDescriptor.ImplementationType);
             Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
 
-            serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
-            Assert.NotNull(serviceDescriptor.ImplementationFactory);
-            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
-
             serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(SystemJob<TestJob>));
             Assert.Equal(typeof(SystemJob<TestJob>), serviceDescriptor.ImplementationType);
             Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
@@ -105,13 +101,11 @@ namespace Foralla.Scheduler.Test.Extensions
             Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
 
             var jobInstance = Assert.IsType<TestJob>(services.GetRequiredService<TestJob>());
-            var iJobInstance = Assert.IsType<TestJob>(services.GetRequiredService<IJob>());
             var systemJob = Assert.IsType<SystemJob<TestJob>>(services.GetRequiredService<SystemJob<TestJob>>());
             var iSystemJob = Assert.IsType<SystemJob<TestJob>>(services.GetRequiredService<ISystemJob>());
-            Assert.NotEqual(jobInstance, iJobInstance);
             Assert.Equal(systemJob, iSystemJob);
             Assert.Equal(systemJob.Job, systemJob.Job);
-            Assert.NotEqual(jobInstance, systemJob.Job);
+            Assert.Equal(jobInstance, systemJob.Job);
         }
     }
 }
