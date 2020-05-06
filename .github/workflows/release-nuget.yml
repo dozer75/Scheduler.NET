@@ -33,7 +33,7 @@ jobs:
       id: nuget-push-abstractions
       if: ${{ success() }}
       run: dotnet nuget push -k ${{ secrets.NUGET_FORALLA }} -s https://api.nuget.org/v3/index.json --skip-duplicate ./output/Foralla.Scheduler.Abstractions.${{ steps.get_version.outputs.VERSION }}.nupkg
-    - name: NuGet push Foralla.Scheduler.Abstractions
+    - name: NuGet push Foralla.Scheduler
       id: nuget-push-base
       if: ${{ success() }}
       run: dotnet nuget push -k ${{ secrets.NUGET_FORALLA }} -s https://api.nuget.org/v3/index.json --skip-duplicate ./output/Foralla.Scheduler.${{ steps.get_version.outputs.VERSION }}.nupkg
