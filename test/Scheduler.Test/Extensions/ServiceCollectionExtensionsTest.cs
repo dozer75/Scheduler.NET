@@ -90,7 +90,7 @@ namespace Foralla.Scheduler.Test.Extensions
 
             var serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(TestJob));
             Assert.Equal(typeof(TestJob), serviceDescriptor.ImplementationType);
-            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
+            Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
 
             serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
             Assert.NotNull(serviceDescriptor.ImplementationFactory);
