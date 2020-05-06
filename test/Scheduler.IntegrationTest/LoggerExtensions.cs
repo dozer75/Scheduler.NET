@@ -24,7 +24,7 @@ namespace Foralla.Scheduler.IntegrationTest
             }
 
             loggerMock.Verify(logger => logger.Log(logLevel, 0, It.Is<It.IsAnyType>((actual, t) => CompareLogStringValue(actual, value)),
-                                                   It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>) It.IsAny<object>()),
+                                                   It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()),
                               times);
         }
 
@@ -45,7 +45,7 @@ namespace Foralla.Scheduler.IntegrationTest
             }
 
             loggerMock.Verify(logger => logger.Log(logLevel, 0, It.Is<It.IsAnyType>((actual, t) => CompareLogStringValue(actual, value)),
-                                                   It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>) It.IsAny<object>()),
+                                                   It.IsAny<Exception>(), (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()),
                               times);
         }
 
@@ -68,7 +68,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             loggerMock.Verify(logger => logger.Log(logLevel, 0, It.Is<It.IsAnyType>((actual, t) => CompareLogStringValue(actual, value)),
                                                    It.Is<Exception>((val, type) => CompareExceptions(val as Exception, exception)),
-                                                   (Func<It.IsAnyType, Exception, string>) It.IsAny<object>()), times);
+                                                   (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), times);
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             loggerMock.Verify(logger => logger.Log(logLevel, 0, It.Is<It.IsAnyType>((actual, t) => CompareLogStringValue(actual, value)),
                                                    It.Is<Exception>((val, type) => CompareExceptions(val as Exception, exception)),
-                                                   (Func<It.IsAnyType, Exception, string>) It.IsAny<object>()), times);
+                                                   (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), times);
         }
 
         private static bool CompareExceptions(Exception actual, Exception expected)

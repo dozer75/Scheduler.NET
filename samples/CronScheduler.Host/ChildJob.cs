@@ -9,10 +9,10 @@ namespace Foralla.Scheduler.Cron.Demo
     {
         private readonly ILogger<ChildJob> _logger;
         public string ChildName { get; set; }
-        public override string Expression { get; } = "*/10 * * * * *";
-        public override string Name => ChildName;
 
         public override DateTimeOffset? DontStartAfter { get; } = DateTimeOffset.Now.AddSeconds(30);
+        public override string Expression { get; } = "*/10 * * * * *";
+        public override string Name => ChildName;
 
         public ChildJob(ILogger<ChildJob> logger)
         {

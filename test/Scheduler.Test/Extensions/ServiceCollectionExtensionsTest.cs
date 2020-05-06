@@ -24,6 +24,28 @@ namespace Foralla.Scheduler.Test.Extensions
         }
 
         [Fact]
+        public void TestAddJobType()
+        {
+            var serviceCollection = new ServiceCollection()
+               .AddJob<TestJob>();
+
+            var services = serviceCollection
+               .BuildServiceProvider(true);
+
+            var serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(TestJob));
+            Assert.Equal(typeof(TestJob), serviceDescriptor.ImplementationType);
+            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
+
+            serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
+            Assert.NotNull(serviceDescriptor.ImplementationFactory);
+            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
+
+            var jobInstance = Assert.IsType<TestJob>(services.GetRequiredService<TestJob>());
+            var iJobInstance = Assert.IsType<TestJob>(services.GetRequiredService<IJob>());
+            Assert.NotEqual(jobInstance, iJobInstance);
+        }
+
+        [Fact]
         public void TestAddScheduler()
         {
             var serviceCollection = new ServiceCollection()
@@ -58,39 +80,38 @@ namespace Foralla.Scheduler.Test.Extensions
         }
 
         [Fact]
-        public void TestAddSystemJobInstance()
-        {
-            var testJob = new TestJob();
-
-            var serviceCollection = new ServiceCollection()
-               .AddSystemJob(testJob);
-
-            var serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
-            Assert.Equal(typeof(IJob), serviceDescriptor.ServiceType);
-            Assert.Equal(testJob, serviceDescriptor.ImplementationInstance);
-            Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
-
-            var services = serviceCollection
-               .BuildServiceProvider(true);
-
-            Assert.Equal(testJob, services.GetRequiredService<IJob>());
-        }
-
-        [Fact]
         public void TestAddSystemJobType()
         {
             var serviceCollection = new ServiceCollection()
                .AddSystemJob<TestJob>();
 
-            var serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
-            Assert.Equal(typeof(IJob), serviceDescriptor.ServiceType);
-            Assert.Equal(typeof(TestJob), serviceDescriptor.ImplementationType);
-            Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
-
             var services = serviceCollection
                .BuildServiceProvider(true);
 
-            Assert.IsType<TestJob>(services.GetRequiredService<IJob>());
+            var serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(TestJob));
+            Assert.Equal(typeof(TestJob), serviceDescriptor.ImplementationType);
+            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
+
+            serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(IJob));
+            Assert.NotNull(serviceDescriptor.ImplementationFactory);
+            Assert.Equal(ServiceLifetime.Transient, serviceDescriptor.Lifetime);
+
+            serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(SystemJob<TestJob>));
+            Assert.Equal(typeof(SystemJob<TestJob>), serviceDescriptor.ImplementationType);
+            Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
+
+            serviceDescriptor = serviceCollection.Single(sd => sd.ServiceType == typeof(ISystemJob));
+            Assert.NotNull(serviceDescriptor.ImplementationFactory);
+            Assert.Equal(ServiceLifetime.Singleton, serviceDescriptor.Lifetime);
+
+            var jobInstance = Assert.IsType<TestJob>(services.GetRequiredService<TestJob>());
+            var iJobInstance = Assert.IsType<TestJob>(services.GetRequiredService<IJob>());
+            var systemJob = Assert.IsType<SystemJob<TestJob>>(services.GetRequiredService<SystemJob<TestJob>>());
+            var iSystemJob = Assert.IsType<SystemJob<TestJob>>(services.GetRequiredService<ISystemJob>());
+            Assert.NotEqual(jobInstance, iJobInstance);
+            Assert.Equal(systemJob, iSystemJob);
+            Assert.Equal(systemJob.Job, systemJob.Job);
+            Assert.NotEqual(jobInstance, systemJob.Job);
         }
     }
 }

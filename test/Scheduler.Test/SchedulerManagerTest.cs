@@ -12,7 +12,7 @@ namespace Foralla.Scheduler.Test
         {
             var jobMock = new Mock<IJob>();
 
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             schedulerManager.JobAdded += (sender, args) =>
                                          {
@@ -29,7 +29,7 @@ namespace Foralla.Scheduler.Test
         {
             var jobMock = new Mock<IJob>();
 
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             Assert.False(schedulerManager.AddJob(jobMock.Object));
         }
@@ -38,7 +38,7 @@ namespace Foralla.Scheduler.Test
         public void TestGetJobs()
         {
             var jobMock = new Mock<IJob>();
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             schedulerManager.GetJobs += (sender, args) =>
                                         {
@@ -61,7 +61,7 @@ namespace Foralla.Scheduler.Test
         [Fact]
         public void TestGetJobsNoEventSubscription()
         {
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             Assert.Null(schedulerManager.Jobs);
         }
@@ -69,7 +69,7 @@ namespace Foralla.Scheduler.Test
         [Fact]
         public async Task TestRemoveJob()
         {
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             schedulerManager.JobRemoved += (sender, args) =>
                                            {
@@ -85,7 +85,7 @@ namespace Foralla.Scheduler.Test
         [Fact]
         public async Task TestRemoveJobNoEventSubscription()
         {
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             Assert.False(await schedulerManager.RemoveJobAsync("Job"));
         }
@@ -94,7 +94,7 @@ namespace Foralla.Scheduler.Test
         public void TestSystemGetJobs()
         {
             var jobMock = new Mock<IJob>();
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             schedulerManager.GetJobs += (sender, args) =>
                                         {
@@ -117,7 +117,7 @@ namespace Foralla.Scheduler.Test
         [Fact]
         public void TestSystemGetJobsNoEventSubscription()
         {
-            var schedulerManager = new SchedulerManager();
+            var schedulerManager = new SchedulerManager(null);
 
             Assert.Null(schedulerManager.SystemJobs);
         }

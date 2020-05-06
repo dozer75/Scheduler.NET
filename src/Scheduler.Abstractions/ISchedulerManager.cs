@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Foralla.Scheduler
@@ -28,6 +29,22 @@ namespace Foralla.Scheduler
         ///     <see cref="IJob.Name" /> must be unique.
         /// </remarks>
         bool AddJob(IJob job);
+
+        /// <summary>
+        ///     Adds the <typeparamref name="TJob" /> to the scheduler.
+        /// </summary>
+        /// <typeparam name="TJob">The type of job to add.</typeparam>
+        /// <param name="setup">
+        ///     An action that should be used to configured the <typeparamref name="TJob" /> instance that is about
+        ///     to be added to the scheduler.
+        /// </param>
+        /// <returns>If the job already exists it returns false, otherwise true.</returns>
+        /// <remarks>
+        ///     The <see cref="IJob.Name" /> is used to check if the job already exist, so the
+        ///     <see cref="IJob.Name" /> must be unique.
+        /// </remarks>
+        bool AddJob<TJob>(Action<TJob> setup = null)
+            where TJob : class, IJob;
 
         /// <summary>
         ///     Removes the job with the specified <paramref name="name" />.

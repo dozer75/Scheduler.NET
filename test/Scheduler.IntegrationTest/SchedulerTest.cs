@@ -14,6 +14,35 @@ namespace Foralla.Scheduler.IntegrationTest
     public class SchedulerTest
     {
         /// <summary>
+        ///     Helper class for dependency injected tests
+        /// </summary>
+        private class Job : IJob
+        {
+            private Func<CancellationToken, Task> _executeAsync;
+            private Func<DateTimeOffset?> _nextScheduledTimeFunc;
+
+            public virtual string Name { get; } = "Job name";
+
+            public DateTimeOffset? NextScheduledTime => _nextScheduledTimeFunc();
+
+            public Task ExecuteAsync(CancellationToken stoppingToken)
+            {
+                return _executeAsync.Invoke(stoppingToken);
+            }
+
+            public void Initialize(Func<DateTimeOffset?> nextScheduledTime, Func<CancellationToken, Task> executeAsyncFunc)
+            {
+                _nextScheduledTimeFunc = nextScheduledTime;
+                _executeAsync = executeAsyncFunc;
+            }
+        }
+
+        private class Job2 : Job
+        {
+            public override string Name { get; } = "Job 2 name";
+        }
+
+        /// <summary>
         ///     Helper class for job cancellation tests since Moq isn't that good on async operations.
         /// </summary>
         private class CancellationJob : IJob
@@ -48,7 +77,6 @@ namespace Foralla.Scheduler.IntegrationTest
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
@@ -58,6 +86,10 @@ namespace Foralla.Scheduler.IntegrationTest
             await Task.Delay(100);
 
             var schedulerManager = services.GetRequiredService<SchedulerManager>();
+
+            Assert.True(schedulerManager.AddJob(jobMock.Object));
+
+            await Task.Delay(100);
 
             Assert.False(schedulerManager.AddJob(jobMock.Object));
 
@@ -70,14 +102,17 @@ namespace Foralla.Scheduler.IntegrationTest
         public async Task TestExecutingJobIsCancelledOnHostStop()
         {
             var loggerMock = new Mock<ILogger<Scheduler>>();
-            var cancellationJob = new CancellationJob();
+
+            CancellationJob cancellationJob;
 
             await using (var services = new ServiceCollection()
                                        .AddSingleton(loggerMock.Object)
                                        .AddScheduler()
-                                       .AddSystemJob(cancellationJob)
+                                       .AddSystemJob<CancellationJob>()
                                        .BuildServiceProvider(true))
             {
+                cancellationJob = (CancellationJob)services.GetRequiredService<SystemJob<CancellationJob>>().Job;
+
                 var scheduler = services.GetRequiredService<IHostedService>();
 
                 await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
@@ -97,17 +132,17 @@ namespace Foralla.Scheduler.IntegrationTest
 
             using var manualCancellationTokenSource = new CancellationTokenSource();
 
-            var cancellationJob = new CancellationJob
-                                  {
-                                      CancellationToken = manualCancellationTokenSource.Token
-                                  };
+            CancellationJob cancellationJob;
 
             await using (var services = new ServiceCollection()
                                        .AddSingleton(loggerMock.Object)
                                        .AddScheduler()
-                                       .AddSystemJob(cancellationJob)
+                                       .AddSystemJob<CancellationJob>()
                                        .BuildServiceProvider(true))
             {
+                cancellationJob = (CancellationJob)services.GetRequiredService<SystemJob<CancellationJob>>().Job;
+                cancellationJob.CancellationToken = manualCancellationTokenSource.Token;
+
                 var scheduler = services.GetRequiredService<IHostedService>();
 
                 await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
@@ -127,22 +162,23 @@ namespace Foralla.Scheduler.IntegrationTest
         {
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
-            var executionTime = DateTimeOffset.Now.AddMilliseconds(200);
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => executionTime);
-
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
-
             Task stopTask = null;
 
-            jobMock.Setup(job => job.ExecuteAsync(It.IsAny<CancellationToken>())).Callback<CancellationToken>(_ => stopTask = scheduler.StopAsync(CancellationToken.None));
+            services.GetRequiredService<Job>().Initialize(() => DateTimeOffset.Now.AddMilliseconds(200),
+                                                          _ =>
+                                                          {
+                                                              stopTask = scheduler.StopAsync(CancellationToken.None);
+
+                                                              return Task.CompletedTask;
+                                                          });
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
@@ -150,7 +186,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             await stopTask.ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Trace, $"{jobMock.Name} has not been rescheduled since the host is shutting down.", Times.Once);
+            loggerMock.Verify(LogLevel.Trace, "Job name has not been rescheduled since the host is shutting down.", Times.Once);
         }
 
         [Fact]
@@ -159,18 +195,23 @@ namespace Foralla.Scheduler.IntegrationTest
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
             DateTimeOffset? executionTime = DateTimeOffset.Now.AddMilliseconds(200);
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => executionTime);
-            jobMock.Setup(job => job.ExecuteAsync(It.IsAny<CancellationToken>())).Callback<CancellationToken>(_ => executionTime = null);
 
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
+
+            services.GetRequiredService<Job>().Initialize(() => executionTime,
+                                                          _ =>
+                                                          {
+                                                              executionTime = null;
+
+                                                              return Task.CompletedTask;
+                                                          });
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
@@ -178,7 +219,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Trace, $"{jobMock.Name} has been removed from the scheduler since there was no more scheduled execution times.", Times.Once);
+            loggerMock.Verify(LogLevel.Trace, "Job name has been removed from the scheduler since there was no more scheduled execution times.", Times.Once);
         }
 
         [Fact]
@@ -186,25 +227,28 @@ namespace Foralla.Scheduler.IntegrationTest
         {
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => null);
-
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
 
+            services.GetRequiredService<Job>().Initialize(() => null,
+                                                          _ =>
+                                                          {
+                                                              Assert.True(false, "Unexpected call to ExecuteAsync.");
+
+                                                              return Task.CompletedTask;
+                                                          });
+
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Warning, $"{jobMock.Name} does not have any scheduled time, the job is not started.", Times.Once);
+            loggerMock.Verify(LogLevel.Warning, "Job name does not have any scheduled time, the job is not started.", Times.Once);
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
-
-            jobMock.Verify(job => job.ExecuteAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -215,27 +259,28 @@ namespace Foralla.Scheduler.IntegrationTest
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
+                                      .AddSingleton<Job>()
+                                      .AddJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
 
-            await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
+            services.GetRequiredService<Job>().Initialize(() => DateTimeOffset.Now.AddSeconds(1),
+                                                          _ => Task.CompletedTask);
 
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
+            await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
             var schedulerManager = services.GetRequiredService<SchedulerManager>();
 
-            Assert.True(schedulerManager.AddJob(jobMock.Object));
+            Assert.True(schedulerManager.AddJob<Job>());
 
             await Task.Delay(100);
 
-            Assert.True(await schedulerManager.RemoveJobAsync(jobMock.Name));
+            Assert.True(await schedulerManager.RemoveJobAsync("Job name"));
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Trace, $"{jobMock.Name} has not been rescheduled since the host is shutting down.", Times.Once);
+            loggerMock.Verify(LogLevel.Trace, "Job name has not been rescheduled since the host is shutting down.", Times.Once);
         }
 
         [Fact]
@@ -268,17 +313,17 @@ namespace Foralla.Scheduler.IntegrationTest
         {
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
-
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
+
+            services.GetRequiredService<Job>().Initialize(() => DateTimeOffset.Now.AddSeconds(1),
+                                                          _ => Task.CompletedTask);
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
@@ -286,11 +331,11 @@ namespace Foralla.Scheduler.IntegrationTest
 
             var schedulerManager = services.GetRequiredService<SchedulerManager>();
 
-            Assert.False(await schedulerManager.RemoveJobAsync(jobMock.Name));
+            Assert.False(await schedulerManager.RemoveJobAsync("Job name"));
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Error, $"{jobMock.Name} is a system job and cannot be removed.", Times.Once);
+            loggerMock.Verify(LogLevel.Error, "Job name is a system job and cannot be removed.", Times.Once);
         }
 
         [Fact]
@@ -302,14 +347,11 @@ namespace Foralla.Scheduler.IntegrationTest
             jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
             jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
 
-            var jobMock2 = new Mock<IJob>();
-            jobMock2.SetupGet(job => job.Name).Returns(jobMock2.Name);
-            jobMock2.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
-
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
@@ -320,14 +362,14 @@ namespace Foralla.Scheduler.IntegrationTest
 
             var schedulerManager = services.GetRequiredService<SchedulerManager>();
 
-            Assert.True(schedulerManager.AddJob(jobMock2.Object));
+            Assert.True(schedulerManager.AddJob(jobMock.Object));
 
             var jobs = schedulerManager.Jobs.ToArray();
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            Assert.DoesNotContain(jobMock.Object, jobs);
-            Assert.Contains(jobMock2.Object, jobs);
+            Assert.DoesNotContain(services.GetService<Job>(), jobs);
+            Assert.Contains(jobMock.Object, jobs);
         }
 
         [Fact]
@@ -336,20 +378,21 @@ namespace Foralla.Scheduler.IntegrationTest
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
             var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
-
-            var jobMock2 = new Mock<IJob>();
-            jobMock2.SetupGet(job => job.Name).Returns(jobMock2.Name);
-            jobMock2.SetupGet(job => job.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
+            jobMock.SetupGet(j => j.Name).Returns(jobMock.Name);
+            jobMock.SetupGet(j => j.NextScheduledTime).Returns(() => DateTimeOffset.Now.AddSeconds(1));
 
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddSingleton<Job>()
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
+
+            var job = services.GetRequiredService<Job>();
+
+            job.Initialize(() => DateTimeOffset.Now.AddSeconds(1), null);
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
@@ -357,14 +400,14 @@ namespace Foralla.Scheduler.IntegrationTest
 
             var schedulerManager = services.GetRequiredService<SchedulerManager>();
 
-            Assert.True(schedulerManager.AddJob(jobMock2.Object));
+            Assert.True(schedulerManager.AddJob(jobMock.Object));
 
             var jobs = schedulerManager.SystemJobs.ToArray();
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            Assert.Contains(jobMock.Object, jobs);
-            Assert.DoesNotContain(jobMock2.Object, jobs);
+            Assert.Contains(job, jobs);
+            Assert.DoesNotContain(jobMock.Object, jobs);
         }
 
         [Fact]
@@ -402,62 +445,76 @@ namespace Foralla.Scheduler.IntegrationTest
         {
             using var cancellationTokenSource1 = new CancellationTokenSource();
             using var cancellationTokenSource2 = new CancellationTokenSource();
-            using var linkedCancellationsTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource1.Token, cancellationTokenSource2.Token);
 
-            var jobMock1 = new Mock<IJob>();
+            var waitForStop1 = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var waitForStop2 = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            cancellationTokenSource1.Token.Register(state =>
+                                                    {
+                                                        var tcs = (TaskCompletionSource<object>)state;
+                                                        tcs.TrySetResult(null);
+                                                    }, waitForStop1);
+
+            cancellationTokenSource2.Token.Register(state =>
+                                                    {
+                                                        var tcs = (TaskCompletionSource<object>)state;
+                                                        tcs.TrySetResult(null);
+                                                    }, waitForStop2);
 
             var job1Executed = false;
-
-            jobMock1.SetupGet(job => job.Name).Returns(jobMock1.Name);
-            jobMock1.SetupGet(job => job.NextScheduledTime).Returns(() => !job1Executed ? (DateTimeOffset?) DateTimeOffset.Now.AddMilliseconds(100) : null);
-
-            jobMock1.Setup(job => job.ExecuteAsync(It.IsAny<CancellationToken>()))
-                    .Callback((CancellationToken ct) =>
-                              {
-                                  job1Executed = true;
-                                  cancellationTokenSource1.Cancel();
-                              });
-
-            var jobMock2 = new Mock<IJob>();
             var job2Executed = false;
-
-            jobMock2.SetupGet(job => job.Name).Returns(jobMock2.Name);
-            jobMock2.SetupGet(job => job.NextScheduledTime).Returns(() => !job2Executed ? (DateTimeOffset?) DateTimeOffset.Now.AddMilliseconds(100) : null);
-
-            jobMock2.Setup(job => job.ExecuteAsync(It.IsAny<CancellationToken>()))
-                    .Callback((CancellationToken ct) =>
-                              {
-                                  job2Executed = true;
-                                  cancellationTokenSource2.Cancel();
-                              });
 
             var loggerMock = new Mock<ILogger<Scheduler>>();
 
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock1.Object)
-                                      .AddSystemJob(jobMock2.Object)
+                                      .AddTransient(p =>
+                                                    {
+                                                        var job = new Job();
+
+                                                        job.Initialize(() => !job1Executed ? (DateTimeOffset?)DateTimeOffset.Now.AddMilliseconds(100) : null,
+                                                                       ct =>
+                                                                       {
+                                                                           job1Executed = true;
+                                                                           cancellationTokenSource1.Cancel();
+
+                                                                           return Task.CompletedTask;
+                                                                       });
+
+                                                        return job;
+                                                    })
+                                      .AddTransient(p =>
+                                                    {
+                                                        var job = new Job2();
+
+                                                        job.Initialize(() => !job2Executed ? (DateTimeOffset?)DateTimeOffset.Now.AddMilliseconds(100) : null,
+                                                                       ct =>
+                                                                       {
+                                                                           job2Executed = true;
+                                                                           cancellationTokenSource2.Cancel();
+
+                                                                           return Task.CompletedTask;
+                                                                       });
+
+                                                        return job;
+                                                    })
+                                      .AddSystemJob<Job>()
+                                      .AddSystemJob<Job2>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
 
             await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
-            var waitForStop = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var allTask = Task.WhenAll(waitForStop1.Task, waitForStop2.Task);
 
-            linkedCancellationsTokenSource.Token.Register(state =>
-                                                          {
-                                                              var tcs = (TaskCompletionSource<object>) state;
-                                                              tcs.TrySetResult(null);
-                                                          }, waitForStop);
-
-            var result = await Task.WhenAny(waitForStop.Task, Task.Delay(10000, CancellationToken.None));
+            var result = await Task.WhenAny(allTask, Task.Delay(10000, CancellationToken.None));
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
             // If this assertion fails, something has hanged during execution so that the jobs isn't executed.
-            Assert.Equal(waitForStop.Task, result);
+            Assert.Equal(allTask, result);
         }
 
         [Fact]
@@ -467,14 +524,24 @@ namespace Foralla.Scheduler.IntegrationTest
 
             var executionTime = DateTimeOffset.Now.AddMinutes(1);
 
-            var jobMock = new Mock<IJob>();
-            jobMock.SetupGet(job => job.Name).Returns(jobMock.Name);
-            jobMock.SetupGet(job => job.NextScheduledTime).Returns(() => executionTime);
-
             await using var services = new ServiceCollection()
                                       .AddSingleton(loggerMock.Object)
                                       .AddScheduler()
-                                      .AddSystemJob(jobMock.Object)
+                                      .AddTransient(p =>
+                                                    {
+                                                        var job = new Job();
+
+                                                        job.Initialize(() => executionTime,
+                                                                       ct =>
+                                                                       {
+                                                                           Assert.False(true, "The callback should never have been called.");
+
+                                                                           return Task.CompletedTask;
+                                                                       });
+
+                                                        return job;
+                                                    })
+                                      .AddSystemJob<Job>()
                                       .BuildServiceProvider(true);
 
             var scheduler = services.GetRequiredService<IHostedService>();
@@ -485,8 +552,7 @@ namespace Foralla.Scheduler.IntegrationTest
 
             await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
 
-            loggerMock.Verify(LogLevel.Trace, $"{jobMock.Name} that should have started {executionTime} has been cancelled because the host is shutting down.", Times.Once);
-            jobMock.Verify(job => job.ExecuteAsync(It.IsAny<CancellationToken>()), Times.Never);
+            loggerMock.Verify(LogLevel.Trace, $"Job name that should have started {executionTime} has been cancelled because the host is shutting down.", Times.Once);
         }
     }
 }

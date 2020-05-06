@@ -22,9 +22,10 @@ namespace Foralla.Scheduler
         private bool _disposed;
         private CancellationToken _stoppingToken;
 
-        public Scheduler(IEnumerable<IJob> systemJobs, ILogger<Scheduler> logger, SchedulerManager schedulerHandler)
+        public Scheduler(IEnumerable<ISystemJob> systemJobs, ILogger<Scheduler> logger, SchedulerManager schedulerHandler)
         {
-            _systemJobs = systemJobs;
+            _systemJobs = systemJobs.Select(sj => sj.Job).OfType<IJob>().ToArray();
+
             _logger = logger;
 
             schedulerHandler.GetJobs += (sender, e) => e.Jobs = e.SystemJobs ?

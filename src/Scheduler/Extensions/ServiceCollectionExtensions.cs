@@ -11,6 +11,21 @@ namespace Foralla.Scheduler.Extensions
     public static class ServiceCollectionExtensions
     {
         /// <summary>
+        ///     Adds the <typeparamref name="TJob" /> to <paramref name="services" /> to be available as a service for jobs.
+        /// </summary>
+        /// <typeparam name="TJob">The type of the job instance to add.</typeparam>
+        /// <param name="services">The <see cref="IServiceCollection" /> to add the <typeparamref name="TJob" />.</param>
+        /// <returns>The updated <paramref name="services" /> instance.</returns>
+        public static IServiceCollection AddJob<TJob>(this IServiceCollection services)
+            where TJob : class, IJob
+        {
+            services.TryAddTransient<TJob>();
+            services.AddTransient<IJob, TJob>(p => p.GetRequiredService<TJob>());
+
+            return services;
+        }
+
+        /// <summary>
         ///     Adds a scheduler worker to <paramref name="services" />.
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection" /> to add the scheduler worker.</param>
@@ -32,23 +47,6 @@ namespace Foralla.Scheduler.Extensions
         }
 
         /// <summary>
-        ///     Adds the specified <paramref name="job" /> to <paramref name="services" /> so that it is initialized as a static
-        ///     job by the scheduler worker.
-        /// </summary>
-        /// <param name="services">The <see cref="IServiceCollection" /> to add the <paramref name="job" />.</param>
-        /// <param name="job">The job to add.</param>
-        /// <returns>The updated <paramref name="services" /> instance.</returns>
-        /// <remarks>
-        ///     The jobs added using this method is not possible to remove during the lifetime of the instance.
-        /// </remarks>
-        public static IServiceCollection AddSystemJob(this IServiceCollection services, IJob job)
-        {
-            services.AddSingleton(job);
-
-            return services;
-        }
-
-        /// <summary>
         ///     Adds the <typeparamref name="TJob" /> to <paramref name="services" /> so that it is initialized as a static job by
         ///     the scheduler worker.
         /// </summary>
@@ -61,7 +59,9 @@ namespace Foralla.Scheduler.Extensions
         public static IServiceCollection AddSystemJob<TJob>(this IServiceCollection services)
             where TJob : class, IJob
         {
-            services.AddSingleton<IJob, TJob>();
+            services.TryAddSingleton<TJob>();
+            services.AddSingleton<SystemJob<TJob>>();
+            services.AddSingleton<ISystemJob>(provider => provider.GetRequiredService<SystemJob<TJob>>());
 
             return services;
         }
