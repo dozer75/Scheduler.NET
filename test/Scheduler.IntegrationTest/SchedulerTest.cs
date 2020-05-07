@@ -554,5 +554,69 @@ namespace Foralla.Scheduler.IntegrationTest
 
             loggerMock.Verify(LogLevel.Trace, $"Job name that should have started {executionTime} has been cancelled because the host is shutting down.", Times.Once);
         }
+
+        [Fact]
+        public async Task TestIssue2LogErrorOnUnhandledExceptionsInJob()
+        {
+            var loggerMock = new Mock<ILogger<Scheduler>>();
+
+            await using var services = new ServiceCollection()
+                                      .AddSingleton(loggerMock.Object)
+                                      .AddScheduler()
+                                      .AddTransient(p =>
+                                                    {
+                                                        var job = new Job();
+
+                                                        job.Initialize(() => DateTimeOffset.Now.AddMilliseconds(100),
+                                                                       ct => throw new InvalidOperationException("This exception should be logged as AggregatedException"));
+
+                                                        return job;
+                                                    })
+                                      .AddSystemJob<Job>()
+                                      .BuildServiceProvider(true);
+
+            var scheduler = services.GetRequiredService<IHostedService>();
+
+            await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
+
+            await Task.Delay(200);
+
+            await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
+
+            loggerMock.Verify(LogLevel.Error, "Job name failed unexpectedly. See exception for more information.", new AggregateException("One or more errors occurred. (This exception should be logged as AggregatedException)"), Times.Once);
+        }
+
+        [Fact]
+        public async Task TestIssue2AddJobShouldFailIfJobInitalizationFails()
+        {
+            var loggerMock = new Mock<ILogger<Scheduler>>();
+
+            await using var services = new ServiceCollection()
+                                      .AddSingleton(loggerMock.Object)
+                                      .AddScheduler()
+                                      .AddTransient(p =>
+                                                    {
+                                                        var job = new Job();
+
+                                                        job.Initialize(() => throw new InvalidOperationException("This exception should be logged as AggregatedException"),
+                                                                       ct => Task.CompletedTask);
+
+                                                        return job;
+                                                    })
+                                      .AddJob<Job>()
+                                      .BuildServiceProvider(true);
+
+            var scheduler = services.GetRequiredService<IHostedService>();
+
+            await scheduler.StartAsync(CancellationToken.None).ConfigureAwait(false);
+
+            Assert.False(services.GetRequiredService<ISchedulerManager>().AddJob<Job>());
+
+            await Task.Delay(200);
+
+            await scheduler.StopAsync(CancellationToken.None).ConfigureAwait(false);
+
+            loggerMock.Verify(LogLevel.Error, "Job name failed unexpectedly. See exception for more information.", new AggregateException("One or more errors occurred. (This exception should be logged as AggregatedException)"), Times.Once);
+        }
     }
 }

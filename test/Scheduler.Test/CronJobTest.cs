@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using Cronos;
 using Xunit;
 
 namespace Foralla.Scheduler.Test
@@ -62,6 +63,14 @@ namespace Foralla.Scheduler.Test
             {
                 return Task.CompletedTask;
             }
+        }
+
+        [Theory]
+        [InlineData("*/30 * * * *", false)]
+        [InlineData("*/30 * * * * *", true)]
+        public void TestIssue2TryValidateExpression(string expression, bool result)
+        {
+            Assert.Equal(result, new CronJobHelper().TryValidateExpression(expression));
         }
 
         [Fact]
@@ -124,6 +133,18 @@ namespace Foralla.Scheduler.Test
 
             Assert.NotNull(nextScheduledTime);
             Assert.Equal(now.Second + 1, nextScheduledTime.Value.Second);
+        }
+
+        [Fact]
+        public void TestIssue2ValidateExpressionSucceedsOnValidExpression()
+        {
+            new CronJobHelper().ValidateExpression("*/30 * * * * *");
+        }
+
+        [Fact]
+        public void TestIssue2ValidateExpressionThrowsOnInvalidExpression()
+        {
+            Assert.Throws<CronFormatException>(() => new CronJobHelper().ValidateExpression("*/30 * * * *"));
         }
     }
 }

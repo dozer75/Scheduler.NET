@@ -73,5 +73,39 @@ namespace Foralla.Scheduler
         internal Func<DateTimeOffset> InternalNow { get; set; } = () => DateTimeOffset.Now;
 
         public abstract Task ExecuteAsync(CancellationToken stoppingToken);
+
+        /// <summary>
+        ///     Validates the <paramref name="expression" /> is a valid cron expression.
+        /// </summary>
+        /// <param name="expression">The expression to validate.</param>
+        /// <returns>True if it is, otherwise false.</returns>
+        protected internal bool TryValidateExpression(string expression)
+        {
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                return false;
+            }
+
+            try
+            {
+                ValidateExpression(expression);
+
+                return true;
+            }
+            catch (CronFormatException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        ///     Validates the <paramref name="expression" /> is a valid cron expression.
+        /// </summary>
+        /// <param name="expression">The expression to validate.</param>
+        /// <exception cref="CronFormatException">Thrown if the <paramref name="expression" /> isn't a valid cron expression.</exception>
+        protected internal void ValidateExpression(string expression)
+        {
+            CronExpression.Parse(expression, UseSeconds ? CronFormat.IncludeSeconds : CronFormat.Standard);
+        }
     }
 }

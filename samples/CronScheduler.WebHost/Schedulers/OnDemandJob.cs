@@ -34,6 +34,8 @@ namespace CronScheduler.WebHost.Schedulers
 
         public void Initalize(string name, string expression)
         {
+            ValidateExpression(expression);
+
             _name = name;
             _expression = expression;
         }

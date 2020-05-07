@@ -102,6 +102,11 @@ namespace Foralla.Scheduler
 
             jobScheduleInformation.JobTask.ContinueWith(t =>
                                                         {
+                                                            if (t.IsFaulted)
+                                                            {
+                                                                _logger.LogError(t.Exception, $"{job.Name} failed unexpectedly. See exception for more information.");
+                                                            }
+
                                                             // Remove jobs that are stopped because there is no more
                                                             // scheduled executions of the job to free resources
                                                             // runtime.
@@ -112,7 +117,7 @@ namespace Foralla.Scheduler
                                                             }
                                                         }, CancellationToken.None);
 
-            return true;
+            return !jobScheduleInformation.JobTask.IsFaulted;
         }
 
         private async Task JobRunnerAsync(IJob job, CancellationToken jobCancellationToken)
