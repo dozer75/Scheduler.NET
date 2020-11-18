@@ -133,7 +133,7 @@ namespace Foralla.Scheduler
             {
                 var linkedToken = linkedTokenSource.Token;
 
-                _logger.LogInformation($"Starting the the scheduler for {job.Name}.");
+                _logger.LogInformation($"Starting the scheduler for {job.Name}.");
 
                 while (!linkedToken.IsCancellationRequested && job.NextScheduledTime != null)
                 {
@@ -141,7 +141,7 @@ namespace Foralla.Scheduler
 
                     _logger.LogTrace($"{job.Name} is scheduled to start {nextScheduledTime}");
 
-                    await Task.WhenAny(Task.Delay(nextScheduledTime - DateTimeOffset.Now, linkedToken)).ConfigureAwait(false);
+                    await Task.Delay(nextScheduledTime - DateTimeOffset.Now, linkedToken).ConfigureAwait(false);
 
                     if (linkedToken.IsCancellationRequested)
                     {
